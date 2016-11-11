@@ -31,6 +31,7 @@ using System.Collections.Specialized;
 using Microsoft.IdentityModel.Logging;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
+using System.Reflection;
 
 namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
 {
@@ -39,10 +40,14 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
     /// </summary>
     public class OpenIdConnectMessage : AuthenticationProtocolMessage
     {
+        private const string _skuTelemetryValue = "ID_NET";
+
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenIdConnectMessage"/> class.
         /// </summary>
-        public OpenIdConnectMessage() { }
+        public OpenIdConnectMessage() {
+            EnableTelemetryParameters = EnableTelemetryParametersByDefault;
+        }
 
         /// <summary>
         /// Initializes an instance of <see cref="OpenIdConnectMessage"/> class with a json string.
@@ -52,6 +57,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
             if (string.IsNullOrEmpty(json))
                 throw LogHelper.LogArgumentNullException("json");
 
+            EnableTelemetryParameters = EnableTelemetryParametersByDefault;
             try
             {
                 SetJsonParameters(JObject.Parse(json));
@@ -82,6 +88,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
             IssuerAddress = other.IssuerAddress;
             RequestType = other.RequestType;
             TokenEndpoint = other.TokenEndpoint;
+            EnableTelemetryParameters = other.EnableTelemetryParameters;
         }
 
         /// <summary>
@@ -93,6 +100,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
             if (nameValueCollection == null)
                 throw LogHelper.LogArgumentNullException("nameValueCollection");
 
+            EnableTelemetryParameters = EnableTelemetryParametersByDefault;
             foreach (var key in nameValueCollection.AllKeys)
             {
                 if (key != null)
@@ -111,6 +119,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
             if (parameters == null)
                 throw LogHelper.LogArgumentNullException("parameters");
 
+            EnableTelemetryParameters = EnableTelemetryParametersByDefault;
             foreach (KeyValuePair<string, string[]> keyValue in parameters)
             {
                 if (keyValue.Value != null && !string.IsNullOrWhiteSpace(keyValue.Key))
@@ -133,6 +142,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
         /// <param name="json">the json object from which the instance is created.</param>
         public OpenIdConnectMessage(JObject json)
         {
+            EnableTelemetryParameters = EnableTelemetryParametersByDefault;
             SetJsonParameters(json);
         }
 
@@ -169,6 +179,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
         {
             OpenIdConnectMessage openIdConnectMessage = Clone();
             openIdConnectMessage.RequestType = OpenIdConnectRequestType.Authentication;
+            EnsureTelemetryValues(openIdConnectMessage);
             return openIdConnectMessage.BuildRedirectUrl();
         }
 
@@ -180,7 +191,20 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
         {
             OpenIdConnectMessage openIdConnectMessage = Clone();
             openIdConnectMessage.RequestType = OpenIdConnectRequestType.Logout;
+            EnsureTelemetryValues(openIdConnectMessage);
             return openIdConnectMessage.BuildRedirectUrl();
+        }
+
+        /// <summary>
+        /// Adds telemetry values to the message parameters.
+        /// </summary>
+        private void EnsureTelemetryValues(OpenIdConnectMessage clonedMessage)
+        {
+            if (this.EnableTelemetryParameters)
+            {
+                clonedMessage.SetParameter(OpenIdConnectParameterNames.SkuTelemetry, _skuTelemetryValue);
+                clonedMessage.SetParameter(OpenIdConnectParameterNames.VersionTelemetry, typeof(OpenIdConnectMessage).GetTypeInfo().Assembly.GetName().Version.ToString());
+            }
         }
 
         /// <summary>
@@ -278,6 +302,20 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
             get { return GetParameter(OpenIdConnectParameterNames.DomainHint); }
             set { SetParameter(OpenIdConnectParameterNames.DomainHint, value); }
         }
+
+        /// <summary>
+        /// Gets or sets whether parameters for the library and version are sent on the query string for this <see cref="OpenIdConnectMessage"/> instance. 
+        /// This value is set to the value of EnableTelemetryParametersByDefault at message creation time.
+        /// </summary>
+        public bool EnableTelemetryParameters
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// Gets or sets whether parameters for the library and version are sent on the query string for all instances of <see cref="OpenIdConnectMessage"/>. 
+        /// </summary>
+        public static bool EnableTelemetryParametersByDefault = true;
 
         /// <summary>
         /// Gets or sets 'error'.
